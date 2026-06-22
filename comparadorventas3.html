@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Comparativo de Ventas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        /* Estilos generales del Dashboard */
+        header { background: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        header h1 { color: #333; margin-bottom: 10px; font-size: 32px; }
+        header p { color: #666; font-size: 14px; }
+        .periods { display: flex; gap: 30px; margin-top: 20px; flex-wrap: wrap; }
+        .period-label { font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600; }
+        .period-value { font-size: 18px; font-weight: bold; color: #333; margin-top: 5px; }
+        
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .kpi-label { color: #999; font-size: 13px; text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }
+        .kpi-value { font-size: 28px; font-weight: bold; color: #333; margin-bottom: 10px; }
+        .kpi-change { font-size: 14px; display: flex; align-items: center; gap: 5px; }
+        
+        .positive { color: #10b981; } .negative { color: #ef4444; } .neutral { color: #999; }
+        
+        /* Controles, Búsqueda y Botones de Exportación */
+        .controls { background: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+        .search-and-filters { display: flex; gap: 15px; flex-wrap: wrap; align-items: center; flex: 1; }
+        .search-box { flex: 1; min-width: 250px; max-width: 400px; }
+        .search-box input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        
+        .filter-btn { padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: #333; }
+        .filter-btn:hover, .filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
+        
+        .export-actions { display: flex; gap: 10px; flex-wrap: wrap;}
+        .btn-export { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; color: white; transition: 0.3s; display: flex; align-items: center; gap: 5px; }
+        .btn-pdf { background: #4b5563; }
+        .btn-pdf:hover { background: #374151; }
+        .btn-excel { background: #059669; }
+        .btn-excel:hover { background: #047857; }
+        .btn-html { background: #2563eb; }
+        .btn-html:hover { background: #1d4ed8; }
+
+        .table-wrapper { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: #f8f9fa; position: sticky; top: 0; z-index: 10; }
+        th { padding: 18px 20px; text-align: left; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; border-bottom: 2px solid #e5e7eb; }
+        td { padding: 16px 20px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+        tbody tr:hover { background: #f9fafb; }
+        
+        .proveedor-link { font-weight: 600; color: #667eea; cursor: pointer; transition: 0.2s; }
+        .proveedor-link:hover { color: #764ba2; text-decoration: underline; }
+        .cantidad { text-align: right; font-family: 'Courier New', monospace; font-weight: bold; color: #444; }
+        .variacion { text-align: center; font-weight: 600; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
+        .variacion.positive { background: #d1fae5; color: #065f46; }
+        .variacion.negative { background: #fee2e2; color: #7f1d1d; }
+        .variacion.neutral { background: #f3f4f6; color: #4b5563; }
+
+        .charts-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 30px; margin-bottom: 40px; }
+        .chart-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .chart-title { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;}
+        .chart-canvas { position: relative; height: 300px; }
+
+        /* Modal para Artículos */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 95%; max-width: 1100px; max-height: 90vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+        .modal-header { padding: 20px 25px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; }
+        .close-btn { background: none; border: none; font-size: 28px; color: #9ca3af; cursor: pointer; }
+        .close-btn:hover { color: #ef4444; }
+        .modal-body { padding: 20px; overflow-y: auto; background: #f3f4f6; }
+        
+        #dashboard-content { display: none; }
+        .loader-msg { text-align: center; color: white; padding: 50px; font-size: 20px; font-weight: bold;}
+
+        /* ESTILOS PARA LA EXPORTACIÓN/IMPRESIÓN (PDF) */
+        @media print {
+            body { background: white; padding: 0; color: black; }
+            .controls, .close-btn, #articlesModal, .loader-msg { display: none !important; }
+            .container { max-width: 100%; margin: 0; }
+            header { box-shadow: none; border-bottom: 2px solid #ddd; padding: 10px 0; margin-bottom: 20px; border-radius: 0; }
+            .kpis { gap: 10px; }
+            .kpi-card { box-shadow: none; border: 1px solid #ddd; padding: 15px; page-break-inside: avoid; }
+            .table-wrapper { box-shadow: none; border: 1px solid #ddd; margin-bottom: 20px; }
+            .chart-card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; margin-bottom: 20px; }
+            .charts-container { display: block; }
+            th { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact; color: #000; }
+            .variacion.positive { background: #d1fae5 !important; color: #065f46 !important; -webkit-print-color-adjust: exact; }
+            .variacion.negative { background: #fee2e2 !important; color: #7f1d1d !important; -webkit-print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loader-message" class="loader-msg">
+            ⏳ Cargando datos desde Google Sheets...
+        </div>
+
+        <div id="dashboard-content">
+            <header>
+                <h1>📊 Dashboard Comparativo Dinámico</h1>
+                <p>Datos cargados automáticamente desde Google Sheets.</p>
+                <div class="periods">
+                    <div><div class="period-label">Mes Actual</div><div class="period-value" id="lbl-mes-actual">--</div></div>
+                    <div><div class="period-label">Mes Anterior</div><div class="period-value" id="lbl-mes-anterior">--</div></div>
+                    <div><div class="period-label">Mismo Mes Año Pasado</div><div class="period-value" id="lbl-anio-pasado">--</div></div>
+                </div>
+            </header>
+
+            <div class="kpis" id="kpis"></div>
+
+            <div class="controls">
+                <div class="search-and-filters">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="🔍 Buscar proveedor...">
+                    </div>
+                    <div>
+                        <button class="filter-btn active" data-filter="todos">Todos</button>
+                        <button class="filter-btn" data-filter="positivos">📈 Positivos (Mensual)</button>
+                        <button class="filter-btn" data-filter="negativos">📉 Negativos (Mensual)</button>
+                    </div>
+                    <div>
+                        <select id="metricSelector" style="padding:10px; border:1px solid #ddd; border-radius:6px; font-size:13px; font-weight:600; color:#333;">
+                            <option value="Pesos Totales">Pesos Totales ($)</option>
+                            <option value="Importes Netos">Importes Netos ($)</option>
+                            <option value="Importes Finales">Importes Finales ($)</option>
+                            <option value="Cantidades Totales">Cantidades Totales (Unidades/Bultos)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="export-actions">
+                    <button class="btn-export btn-pdf" onclick="window.print()">🖨️ Exportar PDF</button>
+                    <button class="btn-export btn-excel" onclick="exportarExcel()">📊 Exportar a Excel</button>
+                    <button class="btn-export btn-html" onclick="exportarHTML()">🌐 Exportar HTML</button>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable">Proveedor ⇅</th>
+                            <th class="sortable" id="th-anio-pasado" data-sort="anio-pasado">Año Pasado ⇅</th>
+                            <th class="sortable" id="th-mes-anterior" data-sort="mes-anterior">Mes Anterior ⇅</th>
+                            <th class="sortable" id="th-mes-actual" data-sort="mes-actual">Mes Actual ⇅</th>
+                            <th class="sortable" data-sort="var-anterior">Var % (vs Mes Ant) ⇅</th>
+                            <th class="sortable" data-sort="var-anual">Var % (vs Año Ant) ⇅</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-card"><div class="chart-title">Top 10 Proveedores (Periodo Actual)</div><div class="chart-canvas"><canvas id="topProveersChart"></canvas></div></div>
+                <div class="chart-card"><div class="chart-title">Top 10 - Mayor Variación vs Mes Anterior</div><div class="chart-canvas"><canvas id="variacionMesChart"></canvas></div></div>
+                <div class="chart-card"><div class="chart-title">Comparativa Histórica - Top 8 Volumen</div><div class="chart-canvas"><canvas id="comparacionChart"></canvas></div></div>
+                <div class="chart-card"><div class="chart-title">Variación Anual - Top Proveedores</div><div class="chart-canvas"><canvas id="variacionAnualChart"></canvas></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="articlesModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Desglose de Artículos</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="table-wrapper" style="box-shadow: none; border: 1px solid #ddd; margin-bottom: 0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Artículo</th>
+                                <th id="th-mod-anio-pasado">Año Pasado</th>
+                                <th id="th-mod-mes-anterior">Mes Anterior</th>
+                                <th id="th-mod-mes-actual">Mes Actual</th>
+                                <th>Var % (vs Mes Ant)</th>
+                                <th>Var % (vs Año Ant)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="articlesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales 
+        let rawVentas = [];
+        let proveedoresMap = {}; 
+        let data = {}; 
+        let filteredData = {};
+        
+        let periodosGlobales = { actual: null, anterior: null, anioPasado: null };
+        let chartsObj = {};
+        
+        let currentFilter = 'todos';
+        let sortBy = 'mes-actual';
+        let sortAsc = false;
+        let isFormatMoney = true;
+
+        // URL del Google Sheets publicado como CSV
+        const SHEETS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTY28vdxq0hlsBJe2hyhTZUtVt14ylicO9wEq0dYEnLRFmKcma7M5Pn9oBe5RvVjZzrhdMoJNJROLKF/pub?output=csv';
+
+        // Parser simple de CSV a array de objetos
+        function parseCSV(text) {
+            const lines = text.split('\n').map(l => l.trimEnd());
+            if (lines.length === 0) return [];
+            
+            // Detectar separador (coma o punto y coma)
+            const sep = lines[0].includes(';') ? ';' : ',';
+
+            const headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim());
+            const result = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                // Parseo básico respetando comillas
+                const cols = [];
+                let inQ = false, cur = '';
+                for (const ch of lines[i] + sep) {
+                    if (ch === '"') { inQ = !inQ; }
+                    else if (ch === sep && !inQ) { cols.push(cur.trim()); cur = ''; }
+                    else { cur += ch; }
+                }
+                const obj = {};
+                headers.forEach((h, idx) => { obj[h] = cols[idx] !== undefined ? cols[idx] : ''; });
+                result.push(obj);
+            }
+            return result;
+        }
+
+        // Cargar datos desde Google Sheets al iniciar
+        async function cargarDesdeSheets() {
+            document.getElementById('loader-message').style.display = 'block';
+            document.getElementById('dashboard-content').style.display = 'none';
+            document.getElementById('loader-message').innerText = '⏳ Cargando datos desde Google Sheets...';
+
+            try {
+                const resp = await fetch(SHEETS_CSV_URL);
+                if (!resp.ok) throw new Error('No se pudo acceder al Google Sheets.');
+                const text = await resp.text();
+                const rows = parseCSV(text);
+
+                if (rows.length === 0) throw new Error('El archivo CSV está vacío.');
+
+                // Las columnas de proveedores se deducen automáticamente:
+                // Si existe columna "CODIGO ARTICULO" y "PROVEEDO (PROVEEDOR)" usamos hoja de proveedores
+                // De lo contrario asumimos que es la hoja de ventas
+                const firstRow = rows[0];
+                const hasProvCols = 'CODIGO ARTICULO' in firstRow || 'PROVEEDOR' in firstRow || 'PROVEEDO (PROVEEDOR)' in firstRow;
+                const hasVentasCols = 'Periodos' in firstRow || 'Código' in firstRow;
+
+                if (hasProvCols && !hasVentasCols) {
+                    // Es solo hoja de proveedores — no aplica aquí
+                    throw new Error("El CSV parece ser solo la hoja de proveedores. Se necesita la hoja de ventas.");
+                }
+
+                // Intentar separar: si hay columna CODIGO ARTICULO y Periodos juntos, es una sola hoja combinada
+                // Si solo Periodos / Código, construir proveedoresMap desde la columna "Proveedor" de ventas
+                proveedoresMap = {};
+                rows.forEach(row => {
+                    let cod = row['CODIGO ARTICULO'];
+                    let prov = row['PROVEEDO (PROVEEDOR)'] || row['PROVEEDOR'] || row['PROVEEDO'];
+                    if (cod !== undefined && cod !== '' && prov !== undefined && prov !== '') {
+                        proveedoresMap[String(cod).trim()] = String(prov).trim();
+                    }
+                });
+
+                rawVentas = rows.filter(row => row['Periodos'] && String(row['Periodos']).trim() !== '');
+
+                if (rawVentas.length === 0) throw new Error("No se encontraron filas con columna 'Periodos' en el CSV.");
+
+                construirBaseDeDatos();
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loader-message').innerText = '❌ Error al cargar datos: ' + error.message;
+            }
+        }
+
+        // Construir JSON
+        function construirBaseDeDatos() {
+            if (rawVentas.length === 0) return;
+            
+            let metric = document.getElementById('metricSelector').value;
+            isFormatMoney = metric.includes("Pesos") || metric.includes("Importes");
+
+            let periodosSet = new Set();
+            rawVentas.forEach(row => { 
+                let periodoStr = String(row['Periodos'] || "");
+                if (periodoStr.trim() !== "") periodosSet.add(periodoStr.trim()); 
+            });
+
+            let periodosArr = Array.from(periodosSet).map(p => {
+                let match = p.match(/\((\d+)\)\s+(.*)/);
+                if (match) return { original: p, index: parseInt(match[1], 10), label: match[2] };
+                return null;
+            }).filter(p => p);
+
+            periodosArr.sort((a, b) => b.index - a.index); 
+
+            if(periodosArr.length === 0) {
+                alert("Error: No se pudo encontrar la columna 'Periodos' o no tiene el formato esperado '(001) MES AÑO'.");
+                document.getElementById('loader-message').innerText = "Error en el formato de la columna Periodos.";
+                return;
+            }
+
+            let perActual = periodosArr[0]; 
+            let perAnterior = periodosArr.find(p => p.index === perActual.index - 1); 
+            let perAnioPasado = periodosArr.find(p => p.index === perActual.index - 12);
+
+            periodosGlobales = { actual: perActual, anterior: perAnterior, anioPasado: perAnioPasado };
+
+            document.getElementById('lbl-mes-actual').innerText = perActual.label;
+            document.getElementById('lbl-mes-anterior').innerText = perAnterior ? perAnterior.label : 'N/D';
+            document.getElementById('lbl-anio-pasado').innerText = perAnioPasado ? perAnioPasado.label : 'N/D';
+            
+            document.getElementById('th-mes-actual').innerText = perActual.label + " ⇅";
+            document.getElementById('th-mes-anterior').innerText = perAnterior ? perAnterior.label + " ⇅" : 'Mes Anterior ⇅';
+            document.getElementById('th-anio-pasado').innerText = perAnioPasado ? perAnioPasado.label + " ⇅" : 'Año Pasado ⇅';
+            
+            document.getElementById('th-mod-mes-actual').innerText = perActual.label;
+            document.getElementById('th-mod-mes-anterior').innerText = perAnterior ? perAnterior.label : 'Mes Ant';
+            document.getElementById('th-mod-anio-pasado').innerText = perAnioPasado ? perAnioPasado.label : 'Año Pasado';
+
+            let tempRealData = {};
+
+            rawVentas.forEach(row => {
+                let pStr = String(row['Periodos'] || "").trim();
+                let esActual = pStr === perActual.original;
+                let esAnterior = perAnterior && pStr === perAnterior.original;
+                let esAnioPas = perAnioPasado && pStr === perAnioPasado.original;
+
+                if (!esActual && !esAnterior && !esAnioPas) return;
+
+                let codArt = row['Código'] ? String(row['Código']).trim() : null;
+                if (!codArt) return;
+
+                let proveedor = proveedoresMap[codArt] || row['Proveedor'] || "SIN ASIGNAR";
+                let desc = row['Descripción'] || "Desconocido";
+                let valor = parseFloat(row[metric]) || 0;
+
+                if (!tempRealData[proveedor]) {
+                    tempRealData[proveedor] = { "Año Pasado": 0, "Mes Anterior": 0, "Mes Actual": 0, articles: {} };
+                }
+                if (!tempRealData[proveedor].articles[desc]) {
+                    tempRealData[proveedor].articles[desc] = { "Año Pasado": 0, "Mes Anterior": 0, "Mes Actual": 0 };
+                }
+
+                if (esActual) {
+                    tempRealData[proveedor]["Mes Actual"] += valor;
+                    tempRealData[proveedor].articles[desc]["Mes Actual"] += valor;
+                } else if (esAnterior) {
+                    tempRealData[proveedor]["Mes Anterior"] += valor;
+                    tempRealData[proveedor].articles[desc]["Mes Anterior"] += valor;
+                } else if (esAnioPas) {
+                    tempRealData[proveedor]["Año Pasado"] += valor;
+                    tempRealData[proveedor].articles[desc]["Año Pasado"] += valor;
+                }
+            });
+
+            data = {};
+            for (let prov in tempRealData) {
+                let ap = tempRealData[prov]["Año Pasado"];
+                let ma = tempRealData[prov]["Mes Anterior"];
+                let mAc = tempRealData[prov]["Mes Actual"];
+
+                if (ap === 0 && ma === 0 && mAc === 0) continue; 
+
+                data[prov] = {
+                    "Año Pasado": ap,
+                    "Mes Anterior": ma,
+                    "Mes Actual": mAc,
+                    "Var % Ant": ma > 0 ? ((mAc - ma) / ma) * 100 : (mAc > 0 ? 100 : 0),
+                    "Var % Anual": ap > 0 ? ((mAc - ap) / ap) * 100 : (mAc > 0 ? 100 : 0),
+                    "articles": {}
+                };
+
+                for (let art in tempRealData[prov].articles) {
+                    let a_ap = tempRealData[prov].articles[art]["Año Pasado"];
+                    let a_ma = tempRealData[prov].articles[art]["Mes Anterior"];
+                    let a_mac = tempRealData[prov].articles[art]["Mes Actual"];
+                    
+                    if (a_ap === 0 && a_ma === 0 && a_mac === 0) continue;
+
+                    data[prov].articles[art] = {
+                        "Año Pasado": a_ap,
+                        "Mes Anterior": a_ma,
+                        "Mes Actual": a_mac,
+                        "Var % Ant": a_ma > 0 ? ((a_mac - a_ma) / a_ma) * 100 : (a_mac > 0 ? 100 : 0),
+                        "Var % Anual": a_ap > 0 ? ((a_mac - a_ap) / a_ap) * 100 : (a_mac > 0 ? 100 : 0)
+                    };
+                }
+            }
+
+            document.getElementById('loader-message').style.display = 'none';
+            document.getElementById('dashboard-content').style.display = 'block';
+            
+            applyFilters();
+        }
+
+        // Funciones auxiliares y renderizado
+        function formatDisplay(num) {
+            if(isFormatMoney) {
+                return "$" + num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function calculateKPIs() {
+            let totales = { anoPasado: 0, mesAnterior: 0, mesActual: 0, proveedores: 0 };
+            Object.values(filteredData).forEach(item => {
+                totales.anoPasado += item['Año Pasado'];
+                totales.mesAnterior += item['Mes Anterior'];
+                totales.mesActual += item['Mes Actual'];
+                totales.proveedores++;
+            });
+            let varAnt = totales.mesAnterior > 0 ? ((totales.mesActual - totales.mesAnterior) / totales.mesAnterior * 100) : 0;
+            let varAnual = totales.anoPasado > 0 ? ((totales.mesActual - totales.anoPasado) / totales.anoPasado * 100) : 0;
+            return { mesActual: totales.mesActual, varAnt, varAnual, proveedores: totales.proveedores };
+        }
+
+        function renderKPIs() {
+            const kpis = calculateKPIs();
+            const labelMes = periodosGlobales.actual ? periodosGlobales.actual.label : '';
+            const labelAnt = periodosGlobales.anterior ? periodosGlobales.anterior.label : '';
+            
+            document.getElementById('kpis').innerHTML = `
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Analizado (${labelMes})</div>
+                    <div class="kpi-value">${formatDisplay(kpis.mesActual)}</div>
+                    <div class="kpi-change">
+                        <span class="arrow">${kpis.varAnt > 0 ? '↑' : '↓'}</span>
+                        <span class="${kpis.varAnt > 0 ? 'positive' : 'negative'}">${kpis.varAnt > 0 ? '+' : ''}${kpis.varAnt.toFixed(2)}% vs ${labelAnt}</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Crecimiento Interanual</div>
+                    <div class="kpi-value">${kpis.varAnual > 0 ? '+' : ''}${kpis.varAnual.toFixed(2)}%</div>
+                    <div class="kpi-change ${kpis.varAnual > 0 ? 'positive' : 'negative'}">
+                        <span class="arrow">${kpis.varAnual > 0 ? '↑' : '↓'}</span>
+                        <span>Mismo mes año pasado</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Proveedores Filtrados</div>
+                    <div class="kpi-value">${kpis.proveedores}</div>
+                    <div class="kpi-change neutral">Participando en la lista</div>
+                </div>
+            `;
+        }
+
+        function renderTable() {
+            const tableBody = document.getElementById('tableBody');
+            const sorted = Object.entries(filteredData).sort((a, b) => {
+                let aVal = a[1][sortBy === 'anio-pasado' ? 'Año Pasado' : sortBy === 'mes-anterior' ? 'Mes Anterior' : sortBy === 'var-anterior' ? 'Var % Ant' : sortBy === 'var-anual' ? 'Var % Anual' : 'Mes Actual'];
+                let bVal = b[1][sortBy === 'anio-pasado' ? 'Año Pasado' : sortBy === 'mes-anterior' ? 'Mes Anterior' : sortBy === 'var-anterior' ? 'Var % Ant' : sortBy === 'var-anual' ? 'Var % Anual' : 'Mes Actual'];
+                return sortAsc ? aVal - bVal : bVal - aVal;
+            });
+
+            tableBody.innerHTML = sorted.map(([proveedor, item]) => {
+                const varAntClass = item['Var % Ant'] > 0 ? 'positive' : item['Var % Ant'] < 0 ? 'negative' : 'neutral';
+                const varAnualClass = item['Var % Anual'] > 0 ? 'positive' : item['Var % Anual'] < 0 ? 'negative' : 'neutral';
+                
+                return `
+                    <tr>
+                        <td><span class="proveedor-link" onclick="openArticlesModal('${proveedor.replace(/'/g, "\\'")}')">🏢 ${proveedor}</span></td>
+                        <td class="cantidad">${formatDisplay(item['Año Pasado'])}</td>
+                        <td class="cantidad">${formatDisplay(item['Mes Anterior'])}</td>
+                        <td class="cantidad"><strong>${formatDisplay(item['Mes Actual'])}</strong></td>
+                        <td><div class="variacion ${varAntClass}">${item['Var % Ant'] > 0 ? '+' : ''}${item['Var % Ant'].toFixed(2)}%</div></td>
+                        <td><div class="variacion ${varAnualClass}">${item['Var % Anual'] > 0 ? '+' : ''}${item['Var % Anual'].toFixed(2)}%</div></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openArticlesModal(proveedor) {
+            document.getElementById('modalTitle').innerText = `Desglose de Artículos: ${proveedor}`;
+            const articles = data[proveedor].articles;
+            const tbody = document.getElementById('articlesTableBody');
+            
+            const sortedArticles = Object.entries(articles).sort((a, b) => b[1]['Mes Actual'] - a[1]['Mes Actual']);
+            
+            tbody.innerHTML = sortedArticles.map(([articulo, item]) => {
+                const varAntClass = item['Var % Ant'] > 0 ? 'positive' : item['Var % Ant'] < 0 ? 'negative' : 'neutral';
+                const varAnualClass = item['Var % Anual'] > 0 ? 'positive' : item['Var % Anual'] < 0 ? 'negative' : 'neutral';
+                
+                return `
+                    <tr>
+                        <td style="font-weight: 500; font-size: 13px;">${articulo}</td>
+                        <td class="cantidad">${formatDisplay(item['Año Pasado'])}</td>
+                        <td class="cantidad">${formatDisplay(item['Mes Anterior'])}</td>
+                        <td class="cantidad"><strong>${formatDisplay(item['Mes Actual'])}</strong></td>
+                        <td><div class="variacion ${varAntClass}">${item['Var % Ant'] > 0 ? '+' : ''}${item['Var % Ant'].toFixed(2)}%</div></td>
+                        <td><div class="variacion ${varAnualClass}">${item['Var % Anual'] > 0 ? '+' : ''}${item['Var % Anual'].toFixed(2)}%</div></td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('articlesModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        function closeModal() {
+            document.getElementById('articlesModal').style.display = 'none';
+            document.body.style.overflow = 'auto'; 
+        }
+
+        window.onclick = function(event) { if (event.target === document.getElementById('articlesModal')) closeModal(); }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            filteredData = {};
+            Object.entries(data).forEach(([proveedor, item]) => {
+                let matches = (!searchTerm || proveedor.toLowerCase().includes(searchTerm));
+                if (currentFilter === 'positivos' && item['Var % Ant'] <= 0) matches = false;
+                if (currentFilter === 'negativos' && item['Var % Ant'] >= 0) matches = false;
+                if (matches) filteredData[proveedor] = item;
+            });
+            renderKPIs();
+            renderTable();
+            createCharts();
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                applyFilters();
+            });
+        });
+
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const newSort = th.dataset.sort || 'mes-actual';
+                if (sortBy === newSort) sortAsc = !sortAsc;
+                else { sortBy = newSort; sortAsc = false; }
+                renderTable();
+            });
+        });
+        
+        document.getElementById('metricSelector').addEventListener('change', () => { if(rawVentas.length > 0) construirBaseDeDatos(); });
+
+        // Cargar automáticamente al iniciar
+        cargarDesdeSheets();
+
+        // EXPORTACIÓN A EXCEL
+        function exportarExcel() {
+            if (Object.keys(filteredData).length === 0) {
+                alert("No hay datos para exportar.");
+                return;
+            }
+
+            const colAnioPasado = periodosGlobales.anioPasado ? periodosGlobales.anioPasado.label : "Año Pasado";
+            const colMesAnterior = periodosGlobales.anterior ? periodosGlobales.anterior.label : "Mes Anterior";
+            const colMesActual = periodosGlobales.actual ? periodosGlobales.actual.label : "Mes Actual";
+
+            let ws_data = [
+                ["Proveedor", colAnioPasado, colMesAnterior, colMesActual, "Var % (vs Mes Ant)", "Var % (vs Año Ant)"]
+            ];
+            
+            const sorted = Object.entries(filteredData).sort((a, b) => {
+                let aVal = a[1][sortBy === 'anio-pasado' ? 'Año Pasado' : sortBy === 'mes-anterior' ? 'Mes Anterior' : sortBy === 'var-anterior' ? 'Var % Ant' : sortBy === 'var-anual' ? 'Var % Anual' : 'Mes Actual'];
+                let bVal = b[1][sortBy === 'anio-pasado' ? 'Año Pasado' : sortBy === 'mes-anterior' ? 'Mes Anterior' : sortBy === 'var-anterior' ? 'Var % Ant' : sortBy === 'var-anual' ? 'Var % Anual' : 'Mes Actual'];
+                return sortAsc ? aVal - bVal : bVal - aVal;
+            });
+
+            sorted.forEach(([proveedor, item]) => {
+                ws_data.push([
+                    proveedor,
+                    item['Año Pasado'],
+                    item['Mes Anterior'],
+                    item['Mes Actual'],
+                    (item['Var % Ant'] / 100), 
+                    (item['Var % Anual'] / 100)
+                ]);
+            });
+
+            let ws = XLSX.utils.aoa_to_sheet(ws_data);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Reporte Ventas");
+            XLSX.writeFile(wb, `Reporte_Dashboard_${colMesActual}.xlsx`);
+        }
+
+        // EXPORTACIÓN A HTML ESTÁTICO
+        function exportarHTML() {
+            const docClone = document.documentElement.cloneNode(true);
+
+            const uploadPanel = docClone.querySelector('.upload-panel');
+            if (uploadPanel) uploadPanel.remove();
+            
+            const loader = docClone.querySelector('#loader-message');
+            if (loader) loader.remove();
+
+            const exportActions = docClone.querySelector('.export-actions');
+            if (exportActions) exportActions.remove(); 
+
+            const dashboard = docClone.querySelector('#dashboard-content');
+            if (dashboard) dashboard.style.display = 'block';
+
+            const canvases = document.querySelectorAll('canvas');
+            const clonedCanvases = docClone.querySelectorAll('canvas');
+            
+            canvases.forEach((canvas, index) => {
+                try {
+                    const img = document.createElement('img');
+                    img.src = canvas.toDataURL('image/png');
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'contain';
+                    clonedCanvases[index].parentNode.replaceChild(img, clonedCanvases[index]);
+                } catch (err) {
+                    console.log("No se pudo exportar un gráfico");
+                }
+            });
+
+            const scripts = docClone.querySelectorAll('script');
+            scripts.forEach(script => script.remove());
+
+            const htmlContent = "<!DOCTYPE html>\n" + docClone.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            const mesStr = periodosGlobales.actual ? periodosGlobales.actual.label.replace(' ', '_') : 'Actual';
+            a.download = `Reporte_Estatico_${mesStr}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Gráficos
+        function createCharts() {
+            ['top', 'var', 'comp', 'anual'].forEach(key => { if(chartsObj[key]) chartsObj[key].destroy(); });
+
+            const ctx1 = document.getElementById('topProveersChart').getContext('2d');
+            const topProveedores = Object.entries(filteredData).sort((a, b) => b[1]['Mes Actual'] - a[1]['Mes Actual']).slice(0, 10);
+            chartsObj['top'] = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: topProveedores.map(([name]) => name.substring(0, 15) + (name.length > 15 ? '...' : '')),
+                    datasets: [{ label: periodosGlobales.actual ? periodosGlobales.actual.label : 'Actual', data: topProveedores.map(([, item]) => item['Mes Actual']), backgroundColor: '#667eea', borderRadius: 4 }]
+                },
+                options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const ctx2 = document.getElementById('variacionMesChart').getContext('2d');
+            const topVariacion = Object.entries(filteredData).sort((a, b) => Math.abs(b[1]['Var % Ant']) - Math.abs(a[1]['Var % Ant'])).slice(0, 10);
+            chartsObj['var'] = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: topVariacion.map(([name]) => name.substring(0, 15)),
+                    datasets: [{ label: 'Variación %', data: topVariacion.map(([, item]) => item['Var % Ant']), backgroundColor: topVariacion.map(([, item]) => item['Var % Ant'] > 0 ? '#10b981' : '#ef4444'), borderRadius: 4 }]
+                },
+                options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const ctx3 = document.getElementById('comparacionChart').getContext('2d');
+            const top8 = Object.entries(filteredData).sort((a, b) => b[1]['Mes Actual'] - a[1]['Mes Actual']).slice(0, 8);
+            chartsObj['comp'] = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: top8.map(([name]) => name.substring(0, 10)),
+                    datasets: [
+                        { label: periodosGlobales.anioPasado ? periodosGlobales.anioPasado.label : 'Año Pasado', data: top8.map(([, item]) => item['Año Pasado']), backgroundColor: '#9ca3af' },
+                        { label: periodosGlobales.anterior ? periodosGlobales.anterior.label : 'Mes Anterior', data: top8.map(([, item]) => item['Mes Anterior']), backgroundColor: '#667eea' },
+                        { label: periodosGlobales.actual ? periodosGlobales.actual.label : 'Mes Actual', data: top8.map(([, item]) => item['Mes Actual']), backgroundColor: '#8b5cf6' }
+                    ]
+                },
+                options: { maintainAspectRatio: false }
+            });
+
+            const ctx4 = document.getElementById('variacionAnualChart').getContext('2d');
+            const topAnual = Object.entries(filteredData).sort((a, b) => Math.abs(b[1]['Var % Anual']) - Math.abs(a[1]['Var % Anual'])).slice(0, 10);
+            chartsObj['anual'] = new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    labels: topAnual.map(([name]) => name.substring(0, 15)),
+                    datasets: [{ label: 'Var % Anual', data: topAnual.map(([, item]) => item['Var % Anual']), backgroundColor: topAnual.map(([, item]) => item['Var % Anual'] > 0 ? '#10b981' : '#ef4444'), borderRadius: 4 }]
+                },
+                options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+    </script>
+</body>
+</html>
