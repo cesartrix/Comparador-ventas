@@ -223,18 +223,17 @@
             // Hoja Proveedores: col A = CODIGO ARTICULO, col C = PROVEEDOR
             const rowsProv = parseCSV(textProv);
             proveedoresMap = {};
-            console.log('Encabezados Proveedores:', Object.keys(rowsProv[0]));
-console.log('Filas Ventas total:', rowsVentas.length);
-console.log('Primera fila Ventas raw:', rowsVentas[0])
             rowsProv.forEach(row => {
                 const cod  = row['CODIGO ARTICULO'] || '';
-                const prov = row['PROVEEDOR'] || '';
+                const prov = row['PROVEEDO (PROVEEDOR)'] || row['PROVEEDOR'] || '';
                 if (cod && prov) proveedoresMap[cod.trim()] = prov.trim();
             });
 
             // ── Cargar ventas ──
             // Hoja Ventas: col A=Periodos, E=Código, F=Descripción, AC=Cantidades Totales, AE=Importes Netos
             const rowsVentas = parseCSV(textVentas);
+            console.log('Ventas total rows:', rowsVentas.length, '- primera fila keys:', rowsVentas.length > 0 ? Object.keys(rowsVentas[0]) : 'VACIO');
+            console.log('Primera fila ventas:', rowsVentas[0]);
             rawVentas = rowsVentas.filter(r => r['Periodos'] && r['Periodos'].trim() !== '');
 
             if (rawVentas.length === 0) throw new Error("No se encontraron filas con datos en la columna 'Periodos'.");
