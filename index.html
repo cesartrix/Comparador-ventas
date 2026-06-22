@@ -223,6 +223,10 @@
             // Hoja Proveedores: col A = CODIGO ARTICULO, col C = PROVEEDOR
             const rowsProv = parseCSV(textProv);
             proveedoresMap = {};
+            console.log('Encabezados Proveedores:', Object.keys(rowsProv[0]));
+console.log('Primera fila Proveedores:', rowsProv[0]);
+console.log('Encabezados Ventas:', Object.keys(rawVentas[0]));
+console.log('Primera fila Ventas:', rawVentas[0]);
             rowsProv.forEach(row => {
                 const cod  = row['CODIGO ARTICULO'] || '';
                 const prov = row['PROVEEDOR'] || '';
