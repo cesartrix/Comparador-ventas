@@ -297,7 +297,7 @@
 
             const mapEntry  = proveedoresMap[cod];
             const proveedor = mapEntry ? mapEntry.prov : 'SIN ASIGNAR';
-            const desc      = (mapEntry && mapEntry.desc) ? mapEntry.desc : String(row['Descripción'] || 'Desconocido').trim();
+            const desc      = String(row['Artículos'] || row['Descripción'] || 'Desconocido').trim();
             const valor     = parseFloat(String(row[metric] || '0').replace(/,/g, '.')) || 0;
 
             if (!temp[proveedor]) temp[proveedor] = { ap: 0, ma: 0, mac: 0, arts: {} };
