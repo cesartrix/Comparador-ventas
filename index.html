@@ -296,7 +296,8 @@
             if (!cod) return;
 
             const mapEntry  = proveedoresMap[cod];
-            const proveedor = mapEntry ? mapEntry.prov : 'SIN ASIGNAR';
+            const proveedor = mapEntry ? mapEntry.prov : null;
+            if (!proveedor) return; // ignorar sin asignar
             const desc      = String(row['Artículos'] || row['Descripción'] || 'Desconocido').trim();
             const valor     = parseFloat(String(row[metric] || '0').replace(/,/g, '.')) || 0;
 
